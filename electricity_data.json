@@ -1,0 +1,107 @@
+{
+    "contracts": [
+        {
+            "contract_type": "Hausstrom",
+            "company": "44",
+            "company_address": "",
+            "phone": "",
+            "email": "",
+            "vertragskonto": "35",
+            "z\u00e4hlernummer": "353453",
+            "start_date": "15.03.2025"
+        }
+    ],
+    "tarifedaten": [
+        {
+            "vertragskonto": "35",
+            "von": "20.09.2024",
+            "bis": "31.01.2025",
+            "arbeitspreis_ht": "36.71",
+            "arbeitspreis_nt": "0",
+            "grundpreis": "148.55",
+            "grundpreis_id": "T01",
+            "z\u00e4hlerkosten": "16.81",
+            "z\u00e4hlerkosten_id": "T01",
+            "zusatzkosten": "0",
+            "zusatzkosten_id": "T01"
+        },
+        {
+            "vertragskonto": "35",
+            "von": "01.02.2025",
+            "bis": "25.02.2025",
+            "arbeitspreis_ht": "35.28",
+            "arbeitspreis_nt": "0",
+            "grundpreis": "148.55",
+            "grundpreis_id": "T02",
+            "z\u00e4hlerkosten": "16.81",
+            "z\u00e4hlerkosten_id": "T02",
+            "zusatzkosten": "0",
+            "zusatzkosten_id": "T02"
+        },
+        {
+            "vertragskonto": "35",
+            "von": "26.02.2025",
+            "bis": "16.03.2025",
+            "arbeitspreis_ht": "35.28",
+            "arbeitspreis_nt": "0",
+            "grundpreis": "160.55",
+            "grundpreis_id": "T03",
+            "z\u00e4hlerkosten": "20",
+            "z\u00e4hlerkosten_id": "T03",
+            "zusatzkosten": "0",
+            "zusatzkosten_id": "T03"
+        }
+    ],
+    "ablesung": [
+        {
+            "vertragskonto": "35",
+            "ablesungsdatum": "20.09.2024",
+            "z\u00e4hlerstand_ht": "4531",
+            "z\u00e4hlerstand_nt": "0"
+        },
+        {
+            "vertragskonto": "35",
+            "ablesungsdatum": "31.12.2024",
+            "z\u00e4hlerstand_ht": "5939",
+            "z\u00e4hlerstand_nt": "0"
+        },
+        {
+            "vertragskonto": "35",
+            "ablesungsdatum": "31.01.2025",
+            "z\u00e4hlerstand_ht": "6423",
+            "z\u00e4hlerstand_nt": "0"
+        },
+        {
+            "vertragskonto": "35",
+            "ablesungsdatum": "25.02.2025",
+            "z\u00e4hlerstand_ht": "6806",
+            "z\u00e4hlerstand_nt": "0"
+        },
+        {
+            "vertragskonto": "35",
+            "ablesungsdatum": "16.03.2025",
+            "z\u00e4hlerstand_ht": "6974",
+            "z\u00e4hlerstand_nt": "0"
+        }
+    ],
+    "zahlungen": [
+        {
+            "vertragskonto": "35",
+            "zahlungsdatum": "14.12.2024",
+            "betrag": "120.05",
+            "pdf_path": "-"
+        },
+        {
+            "vertragskonto": "35",
+            "zahlungsdatum": "16.12.2024",
+            "betrag": "59.95",
+            "pdf_path": "-"
+        },
+        {
+            "vertragskonto": "35",
+            "zahlungsdatum": "14.01.2025",
+            "betrag": "120",
+            "pdf_path": "-"
+        }
+    ]
+}
