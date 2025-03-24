@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem, QLabel, QPushButton
 from PyQt5.QtCore import Qt
 
 class Energiekosten(QWidget):
@@ -8,13 +8,13 @@ class Energiekosten(QWidget):
         self.resize(1200, 800)
         self.db = db
         self.parent = parent
-        self.vertragsnummer = vertragsnummer  # اضافه کردن vertragsnummer
+        self.vertragsnummer = vertragsnummer
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout()
 
-        # نمایش Vertragsnummer (مثل ablesung.py)
+        # نمایش Vertragsnummer
         vertragsnummer_label = QLabel(f"Vertragsnummer: {self.vertragsnummer if self.vertragsnummer else 'Nicht ausgewählt'}")
         vertragsnummer_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         main_layout.addWidget(vertragsnummer_label)
@@ -58,7 +58,16 @@ class Energiekosten(QWidget):
             }
         """)
 
+        # دکمه Zurück
+        btn_layout = QHBoxLayout()
+        back_btn = QPushButton("Zurück")
+        back_btn.clicked.connect(self.back_to_parent)
+        back_btn.setFixedSize(100, 25)
+        btn_layout.addWidget(back_btn)
+        btn_layout.addStretch()
+
         table_layout.addWidget(self.energiekosten_table)
+        table_layout.addLayout(btn_layout)
         table_frame.setLayout(table_layout)
 
         main_layout.addWidget(table_frame)
@@ -100,13 +109,20 @@ class Energiekosten(QWidget):
                 background-color: #D3D3D3; 
                 color: red; 
             }
+            QPushButton { 
+                background-color: #676b6d; 
+                color: white; 
+                font-weight: bold; 
+                padding: 5px; 
+                border-radius: 10px; 
+                border: 2px solid #676b6d; 
+            }
         """)
 
         # داده‌های اولیه (برای تست)
         self.load_sample_data()
 
     def load_sample_data(self):
-        # نمونه داده برای تست جدول
         self.energiekosten_table.setRowCount(2)
         self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))
         self.energiekosten_table.setItem(1, 1, QTableWidgetItem("01.01.2025 - 31.01.2025"))
@@ -115,6 +131,11 @@ class Energiekosten(QWidget):
         self.energiekosten_table.setItem(1, 4, QTableWidgetItem("30.00 €"))
         self.energiekosten_table.setItem(1, 5, QTableWidgetItem("19%"))
         self.energiekosten_table.setItem(1, 6, QTableWidgetItem("35.70 €"))
+
+    def back_to_parent(self):
+        if self.parent:
+            self.parent.show()
+        self.close()
 
 if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
