@@ -1,17 +1,23 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem, QLabel
 from PyQt5.QtCore import Qt
 
 class Energiekosten(QWidget):
-    def __init__(self, db, parent=None):
+    def __init__(self, db, parent=None, vertragsnummer=None):
         super().__init__()
         self.setWindowTitle("Energiekosten")
         self.resize(1200, 800)
-        self.db = db  # دیتابیس برای محاسبات بعدی
+        self.db = db
         self.parent = parent
+        self.vertragsnummer = vertragsnummer  # اضافه کردن vertragsnummer
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout()
+
+        # نمایش Vertragsnummer (مثل ablesung.py)
+        vertragsnummer_label = QLabel(f"Vertragsnummer: {self.vertragsnummer if self.vertragsnummer else 'Nicht ausgewählt'}")
+        vertragsnummer_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+        main_layout.addWidget(vertragsnummer_label)
 
         # جدول
         table_frame = QGroupBox("Energiekosten")
@@ -21,16 +27,16 @@ class Energiekosten(QWidget):
         self.energiekosten_table = QTableWidget()
         self.energiekosten_table.setColumnCount(7)
         self.energiekosten_table.setHorizontalHeaderLabels(["", "Zeitraum", "Menge", "Preis netto", "Betrag netto", "MwSt.", "Betrag Brutto"])
-        self.energiekosten_table.setColumnWidth(0, 240)  # ستون اول بدون هدر
+        self.energiekosten_table.setColumnWidth(0, 240)
         self.energiekosten_table.setColumnWidth(1, 240)
         self.energiekosten_table.setColumnWidth(2, 240)
         self.energiekosten_table.setColumnWidth(3, 240)
         self.energiekosten_table.setColumnWidth(4, 240)
         self.energiekosten_table.setColumnWidth(5, 240)
         self.energiekosten_table.setColumnWidth(6, 240)
-        self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)  # غیرقابل ویرایش
+        self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
-        # استایل هدرها (مثل ablesung.py)
+        # استایل هدرها
         self.energiekosten_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
                 background-color: #D3D3D3;
@@ -60,7 +66,7 @@ class Energiekosten(QWidget):
 
         self.setLayout(main_layout)
         
-        # استایل کلی (مثل ablesung.py)
+        # استایل کلی
         self.setStyleSheet("""
             QWidget { 
                 font-size: 14px; 
@@ -101,21 +107,21 @@ class Energiekosten(QWidget):
 
     def load_sample_data(self):
         # نمونه داده برای تست جدول
-        self.energiekosten_table.setRowCount(2)  # ۲ سطر برای شروع
-        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))  # تایتل توی ستون اول
-        self.energiekosten_table.setItem(1, 1, QTableWidgetItem("01.01.2025 - 31.01.2025"))  # Zeitraum
-        self.energiekosten_table.setItem(1, 2, QTableWidgetItem("100 kWh"))  # Menge
-        self.energiekosten_table.setItem(1, 3, QTableWidgetItem("0.30 €/kWh"))  # Preis netto
-        self.energiekosten_table.setItem(1, 4, QTableWidgetItem("30.00 €"))  # Betrag netto
-        self.energiekosten_table.setItem(1, 5, QTableWidgetItem("19%"))  # MwSt.
-        self.energiekosten_table.setItem(1, 6, QTableWidgetItem("35.70 €"))  # Betrag Brutto
+        self.energiekosten_table.setRowCount(2)
+        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))
+        self.energiekosten_table.setItem(1, 1, QTableWidgetItem("01.01.2025 - 31.01.2025"))
+        self.energiekosten_table.setItem(1, 2, QTableWidgetItem("100 kWh"))
+        self.energiekosten_table.setItem(1, 3, QTableWidgetItem("0.30 €/kWh"))
+        self.energiekosten_table.setItem(1, 4, QTableWidgetItem("30.00 €"))
+        self.energiekosten_table.setItem(1, 5, QTableWidgetItem("19%"))
+        self.energiekosten_table.setItem(1, 6, QTableWidgetItem("35.70 €"))
 
 if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     import sys
-    from database.db_handler import DatabaseHandler  # فرض بر اینکه دیتابیس آماده‌ست
+    from database.db_handler import DatabaseHandler
     app = QApplication(sys.argv)
-    db = DatabaseHandler()  # دیتابیس رو وصل می‌کنیم
+    db = DatabaseHandler()
     window = Energiekosten(db)
     window.show()
     sys.exit(app.exec_())
