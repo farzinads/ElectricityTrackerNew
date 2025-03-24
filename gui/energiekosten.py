@@ -119,18 +119,23 @@ class Energiekosten(QWidget):
             }
         """)
 
-        # داده‌های اولیه (برای تست)
-        self.load_sample_data()
+        # بارگذاری داده‌ها از tarifdaten
+        self.load_tarif_data()
 
-    def load_sample_data(self):
-        self.energiekosten_table.setRowCount(2)
-        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))
-        self.energiekosten_table.setItem(1, 1, QTableWidgetItem("01.01.2025 - 31.01.2025"))
-        self.energiekosten_table.setItem(1, 2, QTableWidgetItem("100 kWh"))
-        self.energiekosten_table.setItem(1, 3, QTableWidgetItem("0.30 €/kWh"))
-        self.energiekosten_table.setItem(1, 4, QTableWidgetItem("30.00 €"))
-        self.energiekosten_table.setItem(1, 5, QTableWidgetItem("19%"))
-        self.energiekosten_table.setItem(1, 6, QTableWidgetItem("35.70 €"))
+    def load_tarif_data(self):
+        tariffs = self.db.get_tariffs(self.vertragsnummer)
+        if not tariffs:
+            self.energiekosten_table.setRowCount(1)
+            self.energiekosten_table.setItem(0, 0, QTableWidgetItem("داده‌ای یافت نشد"))
+            return
+
+        self.energiekosten_table.setRowCount(len(tariffs) + 1)  # +1 برای سطر خالی بالا
+        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))  # تایتل
+
+        for i, tariff in enumerate(tariffs, start=1):
+            zeitraum = f"{tariff['Von']} - {tariff['Bis']}"
+            self.energiekosten_table.setItem(i, 1, QTableWidgetItem(zeitraum))
+            # بقیه ستون‌ها رو بعداً با محاسبات پر می‌کنیم
 
     def back_to_parent(self):
         if self.parent:
@@ -142,7 +147,7 @@ if __name__ == "__main__":
     import sys
     from database.db_handler import DatabaseHandler
     app = QApplication(sys.argv)
-    db = DatabaseHandler()
+    db = DatabaseHandler("electricity_tracker.db")  # مسیر دیتابیس رو مشخص کردم
     window = Energiekosten(db)
     window.show()
     sys.exit(app.exec_())

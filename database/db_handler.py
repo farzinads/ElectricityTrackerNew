@@ -116,3 +116,16 @@ class DatabaseHandler:
             cursor.execute("DELETE FROM ablesungen WHERE \"Ablesungsdatum\" = ? AND \"Ablesungstyp\" = ?", 
                           (ablesungsdatum, ablesungstyp))
             conn.commit()
+
+    def get_tariffs(self, vertragsnummer):
+        """گرفتن تعرفه‌ها بر اساس شماره قرارداد"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT t."Von", t."Bis"
+                FROM tarifdaten t
+                JOIN contracts c ON t."Zähler" = c.Zählernummer
+                WHERE c.Vertragsnummer = ?
+            ''', (vertragsnummer,))
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
