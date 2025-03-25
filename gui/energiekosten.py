@@ -130,17 +130,21 @@ class Energiekosten(QWidget):
         unique_grundpreis = sorted(set(tarif["Grundpreis"] for tarif in tariffs))  # مقادیر مختلف Grundpreis
         unique_zähler = sorted(set(tarif["Zähler"] for tarif in tariffs))  # مقادیر مختلف Zähler
 
-        # تنظیم تعداد سطرها
-        total_rows = len(unique_tarif_ids) + len(unique_grundpreis) + len(unique_zähler) + 1  # +1 برای فاصله‌ها
+        # تنظیم تعداد سطرها: ۲ برابر تعداد تعرفه‌ها (HT و NT) + Grundpreis‌ها + Zähler‌ها + ۱ برای فاصله
+        total_rows = (2 * len(unique_tarif_ids)) + len(unique_grundpreis) + len(unique_zähler) + 1
         self.energiekosten_table.setRowCount(total_rows)
 
-        # پر کردن Arbeitspreis‌ها
+        # پر کردن Arbeitspreis HT و NT
         row = 1  # از سطر دوم شروع می‌کنیم (سطر اول خالی)
         for tarif_id in unique_tarif_ids:
             tarif = next(t for t in tariffs if t["Tarif-ID"] == tarif_id)  # اولین تعرفه با این ID
-            self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis ({tarif_id})"))
+            # Arbeitspreis HT
+            self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis HT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{tarif['Von']} - {tarif['Bis']}"))
-            # بقیه ستون‌ها بعداً پر می‌شه
+            row += 1
+            # Arbeitspreis NT
+            self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis NT ({tarif_id})"))
+            self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{tarif['Von']} - {tarif['Bis']}"))
             row += 1
 
         # پر کردن Grundpreis‌ها
