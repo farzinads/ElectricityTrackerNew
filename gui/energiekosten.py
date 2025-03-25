@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QGroupBox
 from PyQt5.QtCore import Qt
+from datetime import datetime
 
 class Energiekosten(QWidget):
     def __init__(self, db, parent=None, vertragsnummer=None):
@@ -117,18 +118,42 @@ class Energiekosten(QWidget):
 
     def load_data(self):
         # گرفتن داده‌ها از tarifdaten
-        tariffs = self.db.get_all_tarifs()  # همه تعرفه‌ها رو می‌گیره
+        tariffs = self.db.get_all_tarifs()
+
         if not tariffs:
             self.energiekosten_table.setRowCount(1)
             self.energiekosten_table.setItem(0, 0, QTableWidgetItem("داده‌ای نیست"))
             return
 
-        self.energiekosten_table.setRowCount(len(tariffs) + 1)
-        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))
+        # گرفتن مقادیر منحصربه‌فرد
+        unique_tarif_ids = sorted(set(tarif["Tarif-ID"] for tarif in tariffs))  # تعرفه‌های مختلف
+        unique_grundpreis = sorted(set(tarif["Grundpreis"] for tarif in tariffs))  # مقادیر مختلف Grundpreis
+        unique_zähler = sorted(set(tarif["Zähler"] for tarif in tariffs))  # مقادیر مختلف Zähler
 
-        for i, tariff in enumerate(tariffs, start=1):
-            zeitraum = f"{tariff['Von']} - {tariff['Bis']}"
-            self.energiekosten_table.setItem(i, 1, QTableWidgetItem(zeitraum))
+        # تنظیم تعداد سطرها
+        total_rows = len(unique_tarif_ids) + len(unique_grundpreis) + len(unique_zähler) + 1  # +1 برای فاصله‌ها
+        self.energiekosten_table.setRowCount(total_rows)
+
+        # پر کردن Arbeitspreis‌ها
+        row = 1  # از سطر دوم شروع می‌کنیم (سطر اول خالی)
+        for tarif_id in unique_tarif_ids:
+            tarif = next(t for t in tariffs if t["Tarif-ID"] == tarif_id)  # اولین تعرفه با این ID
+            self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis ({tarif_id})"))
+            self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{tarif['Von']} - {tarif['Bis']}"))
+            # بقیه ستون‌ها بعداً پر می‌شه
+            row += 1
+
+        # پر کردن Grundpreis‌ها
+        for grundpreis in unique_grundpreis:
+            self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Grundpreis"))
+            # بقیه ستون‌ها بعداً پر می‌شه
+            row += 1
+
+        # پر کردن Zähler‌ها
+        for zähler in unique_zähler:
+            self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Zähler"))
+            # بقیه ستون‌ها بعداً پر می‌شه
+            row += 1
 
     def back_to_parent(self):
         if self.parent:
