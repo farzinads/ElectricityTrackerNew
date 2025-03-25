@@ -139,11 +139,9 @@ class Energiekosten(QWidget):
 
         for i in range(len(ablesungen) - 1):
             start_date = datetime.strptime(ablesungen[i]["Ablesungsdatum"], "%d.%m.%Y")
-            # بازه مصرف از روز بعد از قرائت قبلی شروع می‌شه
             period_start = start_date + timedelta(days=1)
             end_date = datetime.strptime(ablesungen[i + 1]["Ablesungsdatum"], "%d.%m.%Y")
 
-            # اگر بازه مصرف کاملاً داخل von و bis باشه
             if period_start >= von_dt and end_date <= bis_dt:
                 start_ht = float(ablesungen[i]["Zählerstand HT"])
                 end_ht = float(ablesungen[i + 1]["Zählerstand HT"])
@@ -151,11 +149,10 @@ class Energiekosten(QWidget):
                 end_nt = float(ablesungen[i + 1]["Zählerstand NT"])
                 verbrauch = (end_ht - start_ht) if ht else (end_nt - start_nt)
                 total_verbrauch += max(verbrauch, 0)
-            # اگر بازه مصرف بخشی‌ش داخل محدوده باشه
             elif (end_date >= von_dt and period_start <= bis_dt):
                 overlap_start = max(period_start, von_dt)
                 overlap_end = min(end_date, bis_dt)
-                if overlap_start <= overlap_end:  # اگر همپوشانی واقعی باشه
+                if overlap_start <= overlap_end:
                     total_days = (end_date - period_start).days + 1
                     overlap_days = (overlap_end - overlap_start).days + 1
                     fraction = overlap_days / total_days
@@ -188,17 +185,25 @@ class Energiekosten(QWidget):
         for tarif_id in unique_tarif_ids:
             tarif = next(t for t in tariffs if t["Tarif-ID"] == tarif_id)
             von, bis = tarif["Von"], tarif["Bis"]
+            # Arbeitspreis HT
             verbrauch_ht = self.calculate_verbrauch(von, bis, ht=True)
+            preis_ht = float(tarif["Arbeitspreis HT"])  # ct/kWh
+            betrag_netto_ht = verbrauch_ht * preis_ht / 100  # تبدیل به یورو
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis HT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{von} - {bis}"))
             self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{verbrauch_ht:.2f} (kWh)"))
             self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{tarif['Arbeitspreis HT']} (ct/kWh)"))
+            self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_ht:.2f} (€)"))
             row += 1
+            # Arbeitspreis NT
             verbrauch_nt = self.calculate_verbrauch(von, bis, ht=False)
+            preis_nt = float(tarif["Arbeitspreis NT"])  # ct/kWh
+            betrag_netto_nt = verbrauch_nt * preis_nt / 100  # تبدیل به یورو
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis NT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{von} - {bis}"))
             self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{verbrauch_nt:.2f} (kWh)"))
             self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{tarif['Arbeitspreis NT']} (ct/kWh)"))
+            self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_nt:.2f} (€)"))
             row += 1
 
         for grundpreis in unique_grundpreis:
@@ -206,10 +211,13 @@ class Energiekosten(QWidget):
             if von and bis:
                 zeitraum = f"{von} - {bis}"
                 days = self.calculate_days(von, bis)
+                preis_grund = float(grundpreis)  # €/jahr
+                betrag_netto_grund = preis_grund * (days / 365)
                 self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Grundpreis"))
                 self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
                 self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
                 self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{grundpreis} (€/jahr)"))
+                self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_grund:.2f} (€)"))
             row += 1
 
         for zähler in unique_zähler:
@@ -217,10 +225,13 @@ class Energiekosten(QWidget):
             if von and bis:
                 zeitraum = f"{von} - {bis}"
                 days = self.calculate_days(von, bis)
+                preis_zähler = float(zähler)  # €/jahr
+                betrag_netto_zähler = preis_zähler * (days / 365)
                 self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Zähler"))
                 self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
                 self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
                 self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{zähler} (€/jahr)"))
+                self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_zähler:.2f} (€)"))
             row += 1
 
     def back_to_parent(self):
