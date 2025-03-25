@@ -30,13 +30,13 @@ class Energiekosten(QWidget):
         self.energiekosten_table.setHorizontalHeaderLabels([
             "", "Zeitraum", "Menge", "Preis netto", "Betrag netto", "MwSt.", "Betrag Brutto"
         ])
-        self.energiekosten_table.setColumnWidth(0, 240)
-        self.energiekosten_table.setColumnWidth(1, 240)
-        self.energiekosten_table.setColumnWidth(2, 240)
-        self.energiekosten_table.setColumnWidth(3, 240)
-        self.energiekosten_table.setColumnWidth(4, 240)
-        self.energiekosten_table.setColumnWidth(5, 240)
-        self.energiekosten_table.setColumnWidth(6, 240)
+        self.energiekosten_table.setColumnWidth(0, 180)  # عرض ستون‌ها کمتر شد (از 240 به 180)
+        self.energiekosten_table.setColumnWidth(1, 180)
+        self.energiekosten_table.setColumnWidth(2, 180)
+        self.energiekosten_table.setColumnWidth(3, 180)
+        self.energiekosten_table.setColumnWidth(4, 180)
+        self.energiekosten_table.setColumnWidth(5, 180)
+        self.energiekosten_table.setColumnWidth(6, 180)
         self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         self.energiekosten_table.horizontalHeader().setStyleSheet("""
@@ -68,9 +68,10 @@ class Energiekosten(QWidget):
         back_btn.clicked.connect(self.back_to_parent)
         back_btn.setFixedSize(100, 25)
 
+        # چیدمان: جدول بالا و دکمه پایین
         main_layout.addWidget(table_frame)
-        main_layout.addWidget(back_btn)
-        main_layout.addStretch()
+        main_layout.addStretch()  # فاصله قبل از دکمه
+        main_layout.addWidget(back_btn, alignment=Qt.AlignBottom | Qt.AlignLeft)  # دکمه پایین صفحه
 
         self.setLayout(main_layout)
         self.load_data()
@@ -116,6 +117,23 @@ class Energiekosten(QWidget):
             }
         """)
 
+    def calculate_zeitraum(self, tariffs, key, value):
+        # فیلتر کردن تعرفه‌ها برای مقدار مشخص (مثلاً Grundpreis = "50")
+        relevant_tariffs = [t for t in tariffs if t[key] == value]
+        if not relevant_tariffs:
+            return None, None
+        # مرتب‌سازی بر اساس تاریخ
+        relevant_tariffs.sort(key=lambda x: datetime.strptime(x["Von"], "%d.%m.%Y"))
+        # گرفتن اولین Von و آخرین Bis
+        von_date = min(datetime.strptime(t["Von"], "%d.%m.%Y") for t in relevant_tariffs)
+        bis_date = max(datetime.strptime(t["Bis"], "%d.%m.%Y") for t in relevant_tariffs)
+        return von_date.strftime("%d.%m.%Y"), bis_date.strftime("%d.%m.%Y")
+
+    def calculate_days(self, von, bis):
+        von_date = datetime.strptime(von, "%d.%m.%Y")
+        bis_date = datetime.strptime(bis, "%d.%m.%Y")
+        return (bis_date - von_date).days + 1  # +1 چون روز آخر هم حساب می‌شه
+
     def load_data(self):
         # گرفتن داده‌ها از tarifdaten
         tariffs = self.db.get_all_tarifs()
@@ -130,7 +148,7 @@ class Energiekosten(QWidget):
         unique_grundpreis = sorted(set(tarif["Grundpreis"] for tarif in tariffs))  # مقادیر مختلف Grundpreis
         unique_zähler = sorted(set(tarif["Zähler"] for tarif in tariffs))  # مقادیر مختلف Zähler
 
-        # تنظیم تعداد سطرها: ۲ برابر تعداد تعرفه‌ها (HT و NT) + Grundpreis‌ها + Zähler‌ها + ۱ برای فاصله
+        # تنظیم تعداد سطرها
         total_rows = (2 * len(unique_tarif_ids)) + len(unique_grundpreis) + len(unique_zähler) + 1
         self.energiekosten_table.setRowCount(total_rows)
 
@@ -141,22 +159,36 @@ class Energiekosten(QWidget):
             # Arbeitspreis HT
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis HT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{tarif['Von']} - {tarif['Bis']}"))
+            self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{tarif['Arbeitspreis HT']} (ct/kWh)"))
             row += 1
             # Arbeitspreis NT
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis NT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{tarif['Von']} - {tarif['Bis']}"))
+            self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{tarif['Arbeitspreis NT']} (ct/kWh)"))
             row += 1
 
         # پر کردن Grundpreis‌ها
         for grundpreis in unique_grundpreis:
-            self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Grundpreis"))
-            # بقیه ستون‌ها بعداً پر می‌شه
+            von, bis = self.calculate_zeitraum(tariffs, "Grundpreis", grundpreis)
+            if von and bis:
+                zeitraum = f"{von} - {bis}"
+                days = self.calculate_days(von, bis)
+                self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Grundpreis"))
+                self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
+                self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
+                self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{grundpreis} (€/jahr)"))
             row += 1
 
         # پر کردن Zähler‌ها
         for zähler in unique_zähler:
-            self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Zähler"))
-            # بقیه ستون‌ها بعداً پر می‌شه
+            von, bis = self.calculate_zeitraum(tariffs, "Zähler", zähler)
+            if von and bis:
+                zeitraum = f"{von} - {bis}"
+                days = self.calculate_days(von, bis)
+                self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Zähler"))
+                self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
+                self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
+                self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{zähler} (€/jahr)"))
             row += 1
 
     def back_to_parent(self):
