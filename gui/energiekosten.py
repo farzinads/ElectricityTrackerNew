@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem, QLabel, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QGroupBox
 from PyQt5.QtCore import Qt
 
 class Energiekosten(QWidget):
@@ -26,7 +26,9 @@ class Energiekosten(QWidget):
 
         self.energiekosten_table = QTableWidget()
         self.energiekosten_table.setColumnCount(7)
-        self.energiekosten_table.setHorizontalHeaderLabels(["", "Zeitraum", "Menge", "Preis netto", "Betrag netto", "MwSt.", "Betrag Brutto"])
+        self.energiekosten_table.setHorizontalHeaderLabels([
+            "", "Zeitraum", "Menge", "Preis netto", "Betrag netto", "MwSt.", "Betrag Brutto"
+        ])
         self.energiekosten_table.setColumnWidth(0, 240)
         self.energiekosten_table.setColumnWidth(1, 240)
         self.energiekosten_table.setColumnWidth(2, 240)
@@ -36,7 +38,6 @@ class Energiekosten(QWidget):
         self.energiekosten_table.setColumnWidth(6, 240)
         self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
-        # استایل هدرها
         self.energiekosten_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
                 background-color: #D3D3D3;
@@ -58,24 +59,21 @@ class Energiekosten(QWidget):
             }
         """)
 
-        # دکمه Zurück
-        btn_layout = QHBoxLayout()
+        table_layout.addWidget(self.energiekosten_table)
+        table_frame.setLayout(table_layout)
+
+        # دکمه بازگشت
         back_btn = QPushButton("Zurück")
         back_btn.clicked.connect(self.back_to_parent)
         back_btn.setFixedSize(100, 25)
-        btn_layout.addWidget(back_btn)
-        btn_layout.addStretch()
-
-        table_layout.addWidget(self.energiekosten_table)
-        table_layout.addLayout(btn_layout)
-        table_frame.setLayout(table_layout)
 
         main_layout.addWidget(table_frame)
+        main_layout.addWidget(back_btn)
         main_layout.addStretch()
 
         self.setLayout(main_layout)
-        
-        # استایل کلی
+        self.load_data()
+
         self.setStyleSheet("""
             QWidget { 
                 font-size: 14px; 
@@ -85,15 +83,12 @@ class Energiekosten(QWidget):
             QGroupBox { 
                 font-size: 16px; 
                 font-weight: bold; 
-                border: 2px solid #5DADE2; 
+                border: 2px solid #000000; 
                 border-radius: 10px; 
                 margin-top: 10px; 
                 padding: 10px; 
                 background-color: #F5F6F5; 
                 color: #000000; 
-            }
-            QGroupBox#table_frame { 
-                border: 2px solid #000000; 
             }
             QTableWidget { 
                 border: 1px solid #000000; 
@@ -105,10 +100,6 @@ class Energiekosten(QWidget):
                 padding: 5px; 
                 border: none; 
             }
-            QTableWidget::item:selected { 
-                background-color: #D3D3D3; 
-                color: red; 
-            }
             QPushButton { 
                 background-color: #676b6d; 
                 color: white; 
@@ -117,25 +108,27 @@ class Energiekosten(QWidget):
                 border-radius: 10px; 
                 border: 2px solid #676b6d; 
             }
+            QLabel { 
+                background-color: #F5F6F5; 
+                color: #000000; 
+                padding: 5px; 
+            }
         """)
 
-        # بارگذاری داده‌ها از tarifdaten
-        self.load_tarif_data()
-
-    def load_tarif_data(self):
-        tariffs = self.db.get_tariffs(self.vertragsnummer)
+    def load_data(self):
+        # گرفتن داده‌ها از tarifdaten
+        tariffs = self.db.get_all_tarifs()  # همه تعرفه‌ها رو می‌گیره
         if not tariffs:
             self.energiekosten_table.setRowCount(1)
-            self.energiekosten_table.setItem(0, 0, QTableWidgetItem("داده‌ای یافت نشد"))
+            self.energiekosten_table.setItem(0, 0, QTableWidgetItem("داده‌ای نیست"))
             return
 
-        self.energiekosten_table.setRowCount(len(tariffs) + 1)  # +1 برای سطر خالی بالا
-        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))  # تایتل
+        self.energiekosten_table.setRowCount(len(tariffs) + 1)
+        self.energiekosten_table.setItem(1, 0, QTableWidgetItem("Stromkosten"))
 
         for i, tariff in enumerate(tariffs, start=1):
             zeitraum = f"{tariff['Von']} - {tariff['Bis']}"
             self.energiekosten_table.setItem(i, 1, QTableWidgetItem(zeitraum))
-            # بقیه ستون‌ها رو بعداً با محاسبات پر می‌کنیم
 
     def back_to_parent(self):
         if self.parent:
@@ -147,7 +140,7 @@ if __name__ == "__main__":
     import sys
     from database.db_handler import DatabaseHandler
     app = QApplication(sys.argv)
-    db = DatabaseHandler("electricity_tracker.db")  # مسیر دیتابیس رو مشخص کردم
+    db = DatabaseHandler("electricity_tracker.db")
     window = Energiekosten(db)
     window.show()
     sys.exit(app.exec_())
