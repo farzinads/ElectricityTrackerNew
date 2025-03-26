@@ -1,7 +1,28 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QGroupBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QGroupBox, QMenu, QDialog, QLineEdit, QFormLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
+from gui.rechnung import Rechnungen  # اضافه کردن import برای Rechnungen
+
+class RechnungDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Rechnung Details")
+        self.setFixedSize(300, 150)
+        layout = QFormLayout()
+
+        self.rechnungsdatum = QLineEdit(self)
+        self.rechnungsdatum.setPlaceholderText("DD.MM.YYYY")
+        layout.addRow("Rechnungsdatum:", self.rechnungsdatum)
+
+        self.rechnungsnummer = QLineEdit(self)
+        layout.addRow("Rechnungsnummer:", self.rechnungsnummer)
+
+        self.next_btn = QPushButton("Nächste")
+        self.next_btn.clicked.connect(self.accept)
+        layout.addWidget(self.next_btn)
+
+        self.setLayout(layout)
 
 class Energiekosten(QWidget):
     def __init__(self, db, parent=None, vertragsnummer=None):
@@ -37,6 +58,9 @@ class Energiekosten(QWidget):
         self.energiekosten_table.setColumnWidth(5, 135)
         self.energiekosten_table.setColumnWidth(6, 135)
         self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.energiekosten_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.energiekosten_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.energiekosten_table.customContextMenuRequested.connect(self.show_context_menu)
 
         self.energiekosten_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
@@ -99,6 +123,10 @@ class Energiekosten(QWidget):
                 padding: 5px; 
                 border: none; 
             }
+            QTableWidget::item:selected { 
+                background-color: #D3D3D3; 
+                color: red; 
+            }
             QPushButton { 
                 background-color: #676b6d; 
                 color: white; 
@@ -113,6 +141,47 @@ class Energiekosten(QWidget):
                 padding: 5px; 
             }
         """)
+
+    def show_context_menu(self, pos):
+        selected_rows = self.energiekosten_table.selectionModel().selectedRows()
+        if not selected_rows or selected_rows[-1].row() == self.energiekosten_table.rowCount() - 1:  # نادیده گرفتن سطر آخر
+            return
+
+        menu = QMenu(self)
+        send_action = menu.addAction("Senden zu Rechnung")
+        action = menu.exec_(self.energiekosten_table.viewport().mapToGlobal(pos))
+
+        if action == send_action:
+            dialog = RechnungDialog(self)
+            if dialog.exec_():
+                rechnungsdatum = dialog.rechnungsdatum.text()
+                rechnungsnummer = dialog.rechnungsnummer.text()
+                self.send_to_rechnungen(selected_rows, rechnungsdatum, rechnungsnummer)
+
+    def send_to_rechnungen(self, selected_rows, rechnungsdatum, rechnungsnummer):
+        for row in selected_rows:
+            row_index = row.row()
+            zeitraum = self.energiekosten_table.item(row_index, 1).text()
+            menge = self.energiekosten_table.item(row_index, 2).text()
+            preis_netto = self.energiekosten_table.item(row_index, 3).text()
+            betrag_netto = self.energiekosten_table.item(row_index, 4).text()
+
+            rechnung_data = {
+                "Vertragsnummer": self.vertragsnummer,
+                "Rechnungsdatum": rechnungsdatum,
+                "Rechnungsnummer": rechnungsnummer,
+                "Zeitraum": zeitraum,
+                "Menge": menge,
+                "Preis_netto": preis_netto,
+                "Betrag_netto": betrag_netto
+            }
+            self.db.add_rechnung(rechnung_data)
+        
+        # باز کردن پنجره Rechnungen بعد از ذخیره
+        if self.parent:
+            self.rechnungen_window = Rechnungen(self.db, self.parent, self.vertragsnummer)
+            self.rechnungen_window.show()
+            self.hide()  # بستن Energiekosten
 
     def calculate_zeitraum(self, tariffs, key, value):
         relevant_tariffs = [t for t in tariffs if t[key] == value]
@@ -188,7 +257,6 @@ class Energiekosten(QWidget):
         for tarif_id in unique_tarif_ids:
             tarif = next(t for t in tariffs if t["Tarif-ID"] == tarif_id)
             von, bis = tarif["Von"], tarif["Bis"]
-            # Arbeitspreis HT
             verbrauch_ht = self.calculate_verbrauch(von, bis, ht=True)
             preis_ht = float(tarif["Arbeitspreis HT"])
             betrag_netto_ht = verbrauch_ht * preis_ht / 100
@@ -199,7 +267,6 @@ class Energiekosten(QWidget):
             self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{tarif['Arbeitspreis HT']} (ct/kWh)"))
             self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_ht:.2f} (€)"))
             row += 1
-            # Arbeitspreis NT
             verbrauch_nt = self.calculate_verbrauch(von, bis, ht=False)
             preis_nt = float(tarif["Arbeitspreis NT"])
             betrag_netto_nt = verbrauch_nt * preis_nt / 100
@@ -241,17 +308,15 @@ class Energiekosten(QWidget):
                 self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_zähler:.2f} (€)"))
             row += 1
 
-        # سطر Energiekosten (Summe)
         mwst = betrag_netto_sum * 0.19
         betrag_brutto = betrag_netto_sum + mwst
 
-        # تنظیم فونت Bold و رنگ طوسی ملایم
         font = QFont()
         font.setBold(True)
 
         energiekosten_item = QTableWidgetItem("Energiekosten")
         energiekosten_item.setFont(font)
-        energiekosten_item.setBackground(Qt.lightGray)  # طوسی ملایم (#D3D3D3)
+        energiekosten_item.setBackground(Qt.lightGray)
 
         betrag_netto_item = QTableWidgetItem(f"{betrag_netto_sum:.2f} (€)")
         betrag_netto_item.setFont(font)
@@ -274,13 +339,3 @@ class Energiekosten(QWidget):
         if self.parent:
             self.parent.show()
         self.close()
-
-if __name__ == "__main__":
-    from PyQt5.QtWidgets import QApplication
-    import sys
-    from database.db_handler import DatabaseHandler
-    app = QApplication(sys.argv)
-    db = DatabaseHandler("electricity_tracker.db")
-    window = Energiekosten(db)
-    window.show()
-    sys.exit(app.exec_())

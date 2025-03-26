@@ -4,18 +4,19 @@ from database.db_handler import DatabaseHandler
 from gui.tarifdaten import Tarifdaten
 from gui.ablesung import Ablesung
 from gui.energiekosten import Energiekosten
-from gui.rechnung import Rechnung
+from gui.rechnung import Rechnungen
 from gui.zahlungen import Zahlungen
 from gui.raten import Raten
 from gui.charts import Charts
 from gui.verbrauchsmengen import Verbrauchsmengen
 
 class VertragsRegistrierung(QWidget):
-    def __init__(self, db_path):
+    def __init__(self, db_path, parent=None):
         super().__init__()
         self.setWindowTitle("Vertragsregistrierung")
         self.resize(1200, 800)
         self.db = DatabaseHandler(db_path)
+        self.parent = parent
         self.is_editing = False
         self.init_ui()
 
@@ -299,8 +300,8 @@ class VertragsRegistrierung(QWidget):
         selected_row = self.contract_table.currentRow()
         if selected_row >= 0:
             vertragsnummer = self.get_selected_vertragsnummer()
-            self.rechnung_window = Rechnung(self.db, self, vertragsnummer)
-            self.rechnung_window.show()
+            self.rechnungen_window = Rechnungen(self.db, self, vertragsnummer)
+            self.rechnungen_window.show()
             self.hide()
 
     def open_zahlungen(self):
@@ -346,7 +347,7 @@ class VertragsRegistrierung(QWidget):
             submenu = QMenu("Verwaltung", self)
             submenu.addAction("Tarifdaten").triggered.connect(self.open_tarifdaten)
             submenu.addAction("Ablesung").triggered.connect(self.open_ablesung)
-            submenu.addAction("Verbrauchsmengen").triggered.connect(self.open_verbrauchsmengen)  # زیر Ablesung
+            submenu.addAction("Verbrauchsmengen").triggered.connect(self.open_verbrauchsmengen)
             submenu.addAction("Energiekosten").triggered.connect(self.open_energiekosten)
             submenu.addAction("Rechnungen").triggered.connect(self.open_rechnung)
             submenu.addAction("Zahlungen").triggered.connect(self.open_zahlungen)
@@ -358,3 +359,7 @@ class VertragsRegistrierung(QWidget):
             delete_action.triggered.connect(self.delete_contract)
 
             menu.exec_(self.contract_table.viewport().mapToGlobal(pos))
+
+    def load_rechnungen_data(self):
+        if hasattr(self, 'rechnungen_window'):
+            self.rechnungen_window.load_data()

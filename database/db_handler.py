@@ -37,6 +37,18 @@ class DatabaseHandler:
                     PRIMARY KEY ("Ablesungsdatum", "Ablesungstyp")
                 )
             ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Rechnungen (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    Rechnungsdatum TEXT,
+                    Rechnungsnummer TEXT,
+                    Zeitraum TEXT,
+                    Menge TEXT,
+                    Preis_netto TEXT,
+                    Betrag_netto TEXT
+                )
+            ''')
             conn.commit()
 
     def add_contract(self, contract):
@@ -118,7 +130,6 @@ class DatabaseHandler:
             conn.commit()
 
     def get_tariffs(self, vertragsnummer):
-        """گرفتن تعرفه‌ها بر اساس شماره قرارداد"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -127,5 +138,29 @@ class DatabaseHandler:
                 JOIN contracts c ON t."Zähler" = c.Zählernummer
                 WHERE c.Vertragsnummer = ?
             ''', (vertragsnummer,))
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    def add_rechnung(self, rechnung_data):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO Rechnungen (Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Zeitraum, Menge, Preis_netto, Betrag_netto)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                rechnung_data["Vertragsnummer"],
+                rechnung_data["Rechnungsdatum"],
+                rechnung_data["Rechnungsnummer"],
+                rechnung_data["Zeitraum"],
+                rechnung_data["Menge"],
+                rechnung_data["Preis_netto"],
+                rechnung_data["Betrag_netto"]
+            ))
+            conn.commit()
+
+    def get_all_rechnungen(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Zeitraum, Menge, Preis_netto, Betrag_netto FROM Rechnungen")
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
