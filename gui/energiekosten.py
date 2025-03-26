@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QGroupBox
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
 
 class Energiekosten(QWidget):
@@ -30,11 +31,11 @@ class Energiekosten(QWidget):
         ])
         self.energiekosten_table.setColumnWidth(0, 180)
         self.energiekosten_table.setColumnWidth(1, 180)
-        self.energiekosten_table.setColumnWidth(2, 180)
-        self.energiekosten_table.setColumnWidth(3, 180)
-        self.energiekosten_table.setColumnWidth(4, 180)
-        self.energiekosten_table.setColumnWidth(5, 180)
-        self.energiekosten_table.setColumnWidth(6, 180)
+        self.energiekosten_table.setColumnWidth(2, 135)
+        self.energiekosten_table.setColumnWidth(3, 135)
+        self.energiekosten_table.setColumnWidth(4, 135)
+        self.energiekosten_table.setColumnWidth(5, 135)
+        self.energiekosten_table.setColumnWidth(6, 135)
         self.energiekosten_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         self.energiekosten_table.horizontalHeader().setStyleSheet("""
@@ -178,17 +179,20 @@ class Energiekosten(QWidget):
         unique_grundpreis = sorted(set(tarif["Grundpreis"] for tarif in tariffs))
         unique_zähler = sorted(set(tarif["Zähler"] for tarif in tariffs))
 
-        total_rows = (2 * len(unique_tarif_ids)) + len(unique_grundpreis) + len(unique_zähler)
+        total_rows = (2 * len(unique_tarif_ids)) + len(unique_grundpreis) + len(unique_zähler) + 1
         self.energiekosten_table.setRowCount(total_rows)
 
         row = 0
+        betrag_netto_sum = 0.0
+
         for tarif_id in unique_tarif_ids:
             tarif = next(t for t in tariffs if t["Tarif-ID"] == tarif_id)
             von, bis = tarif["Von"], tarif["Bis"]
             # Arbeitspreis HT
             verbrauch_ht = self.calculate_verbrauch(von, bis, ht=True)
-            preis_ht = float(tarif["Arbeitspreis HT"])  # ct/kWh
-            betrag_netto_ht = verbrauch_ht * preis_ht / 100  # تبدیل به یورو
+            preis_ht = float(tarif["Arbeitspreis HT"])
+            betrag_netto_ht = verbrauch_ht * preis_ht / 100
+            betrag_netto_sum += betrag_netto_ht
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis HT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{von} - {bis}"))
             self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{verbrauch_ht:.2f} (kWh)"))
@@ -197,8 +201,9 @@ class Energiekosten(QWidget):
             row += 1
             # Arbeitspreis NT
             verbrauch_nt = self.calculate_verbrauch(von, bis, ht=False)
-            preis_nt = float(tarif["Arbeitspreis NT"])  # ct/kWh
-            betrag_netto_nt = verbrauch_nt * preis_nt / 100  # تبدیل به یورو
+            preis_nt = float(tarif["Arbeitspreis NT"])
+            betrag_netto_nt = verbrauch_nt * preis_nt / 100
+            betrag_netto_sum += betrag_netto_nt
             self.energiekosten_table.setItem(row, 0, QTableWidgetItem(f"Arbeitspreis NT ({tarif_id})"))
             self.energiekosten_table.setItem(row, 1, QTableWidgetItem(f"{von} - {bis}"))
             self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{verbrauch_nt:.2f} (kWh)"))
@@ -211,8 +216,9 @@ class Energiekosten(QWidget):
             if von and bis:
                 zeitraum = f"{von} - {bis}"
                 days = self.calculate_days(von, bis)
-                preis_grund = float(grundpreis)  # €/jahr
+                preis_grund = float(grundpreis)
                 betrag_netto_grund = preis_grund * (days / 365)
+                betrag_netto_sum += betrag_netto_grund
                 self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Grundpreis"))
                 self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
                 self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
@@ -225,14 +231,44 @@ class Energiekosten(QWidget):
             if von and bis:
                 zeitraum = f"{von} - {bis}"
                 days = self.calculate_days(von, bis)
-                preis_zähler = float(zähler)  # €/jahr
+                preis_zähler = float(zähler)
                 betrag_netto_zähler = preis_zähler * (days / 365)
+                betrag_netto_sum += betrag_netto_zähler
                 self.energiekosten_table.setItem(row, 0, QTableWidgetItem("Zähler"))
                 self.energiekosten_table.setItem(row, 1, QTableWidgetItem(zeitraum))
                 self.energiekosten_table.setItem(row, 2, QTableWidgetItem(f"{days} (days)"))
                 self.energiekosten_table.setItem(row, 3, QTableWidgetItem(f"{zähler} (€/jahr)"))
                 self.energiekosten_table.setItem(row, 4, QTableWidgetItem(f"{betrag_netto_zähler:.2f} (€)"))
             row += 1
+
+        # سطر Energiekosten (Summe)
+        mwst = betrag_netto_sum * 0.19
+        betrag_brutto = betrag_netto_sum + mwst
+
+        # تنظیم فونت Bold و رنگ طوسی ملایم
+        font = QFont()
+        font.setBold(True)
+
+        energiekosten_item = QTableWidgetItem("Energiekosten")
+        energiekosten_item.setFont(font)
+        energiekosten_item.setBackground(Qt.lightGray)  # طوسی ملایم (#D3D3D3)
+
+        betrag_netto_item = QTableWidgetItem(f"{betrag_netto_sum:.2f} (€)")
+        betrag_netto_item.setFont(font)
+        betrag_netto_item.setBackground(Qt.lightGray)
+
+        mwst_item = QTableWidgetItem(f"(19%) {mwst:.2f} (€)")
+        mwst_item.setFont(font)
+        mwst_item.setBackground(Qt.lightGray)
+
+        betrag_brutto_item = QTableWidgetItem(f"{betrag_brutto:.2f} (€)")
+        betrag_brutto_item.setFont(font)
+        betrag_brutto_item.setBackground(Qt.lightGray)
+
+        self.energiekosten_table.setItem(row, 0, energiekosten_item)
+        self.energiekosten_table.setItem(row, 4, betrag_netto_item)
+        self.energiekosten_table.setItem(row, 5, mwst_item)
+        self.energiekosten_table.setItem(row, 6, betrag_brutto_item)
 
     def back_to_parent(self):
         if self.parent:
