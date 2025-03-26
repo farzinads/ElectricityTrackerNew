@@ -4,6 +4,7 @@ class DatabaseHandler:
     def __init__(self, db_path):
         self.db_path = db_path
         self.create_tables()
+        self.update_tables()
 
     def create_tables(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -43,12 +44,23 @@ class DatabaseHandler:
                     Vertragsnummer TEXT,
                     Rechnungsdatum TEXT,
                     Rechnungsnummer TEXT,
-                    Zeitraum TEXT,
-                    Menge TEXT,
-                    Preis_netto TEXT,
-                    Betrag_netto TEXT
+                    Betrag_brutto TEXT,
+                    Selected_rows TEXT  -- ستون جدید برای ذخیره سطرهای انتخاب‌شده
                 )
             ''')
+            conn.commit()
+
+    def update_tables(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("ALTER TABLE Rechnungen ADD COLUMN Betrag_brutto TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("ALTER TABLE Rechnungen ADD COLUMN Selected_rows TEXT")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
     def add_contract(self, contract):
@@ -145,22 +157,20 @@ class DatabaseHandler:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO Rechnungen (Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Zeitraum, Menge, Preis_netto, Betrag_netto)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO Rechnungen (Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Betrag_brutto, Selected_rows)
+                VALUES (?, ?, ?, ?, ?)
             ''', (
                 rechnung_data["Vertragsnummer"],
                 rechnung_data["Rechnungsdatum"],
                 rechnung_data["Rechnungsnummer"],
-                rechnung_data["Zeitraum"],
-                rechnung_data["Menge"],
-                rechnung_data["Preis_netto"],
-                rechnung_data["Betrag_netto"]
+                rechnung_data["Betrag_brutto"],
+                rechnung_data["Selected_rows"]
             ))
             conn.commit()
 
     def get_all_rechnungen(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Zeitraum, Menge, Preis_netto, Betrag_netto FROM Rechnungen")
+            cursor.execute("SELECT Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Betrag_brutto, Selected_rows FROM Rechnungen")
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]

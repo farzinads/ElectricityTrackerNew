@@ -2,10 +2,11 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTableWid
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from datetime import datetime, timedelta
-from gui.rechnung import Rechnungen  # اضافه کردن import برای Rechnungen
+import json
+import sqlite3
 
 class RechnungDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, rechnungsdatum=None, rechnungsnummer=None):
         super().__init__(parent)
         self.setWindowTitle("Rechnung Details")
         self.setFixedSize(300, 150)
@@ -13,9 +14,13 @@ class RechnungDialog(QDialog):
 
         self.rechnungsdatum = QLineEdit(self)
         self.rechnungsdatum.setPlaceholderText("DD.MM.YYYY")
+        if rechnungsdatum:
+            self.rechnungsdatum.setText(rechnungsdatum)
         layout.addRow("Rechnungsdatum:", self.rechnungsdatum)
 
         self.rechnungsnummer = QLineEdit(self)
+        if rechnungsnummer:
+            self.rechnungsnummer.setText(rechnungsnummer)
         layout.addRow("Rechnungsnummer:", self.rechnungsnummer)
 
         self.next_btn = QPushButton("Nächste")
@@ -25,13 +30,14 @@ class RechnungDialog(QDialog):
         self.setLayout(layout)
 
 class Energiekosten(QWidget):
-    def __init__(self, db, parent=None, vertragsnummer=None):
+    def __init__(self, db, parent=None, vertragsnummer=None, selected_rechnung=None):
         super().__init__()
-        self.setWindowTitle("Energiekosten")
+        self.setWindowTitle("Energiekosten - NEW VERSION")
         self.resize(1200, 800)
         self.db = db
         self.parent = parent
         self.vertragsnummer = vertragsnummer
+        self.selected_rechnung = selected_rechnung
         self.init_ui()
 
     def init_ui(self):
@@ -144,7 +150,7 @@ class Energiekosten(QWidget):
 
     def show_context_menu(self, pos):
         selected_rows = self.energiekosten_table.selectionModel().selectedRows()
-        if not selected_rows or selected_rows[-1].row() == self.energiekosten_table.rowCount() - 1:  # نادیده گرفتن سطر آخر
+        if not selected_rows or selected_rows[-1].row() == self.energiekosten_table.rowCount() - 1:
             return
 
         menu = QMenu(self)
@@ -152,36 +158,61 @@ class Energiekosten(QWidget):
         action = menu.exec_(self.energiekosten_table.viewport().mapToGlobal(pos))
 
         if action == send_action:
-            dialog = RechnungDialog(self)
+            rechnungsdatum = self.selected_rechnung["Rechnungsdatum"] if self.selected_rechnung else None
+            rechnungsnummer = self.selected_rechnung["Rechnungsnummer"] if self.selected_rechnung else None
+            dialog = RechnungDialog(self, rechnungsdatum, rechnungsnummer)
             if dialog.exec_():
                 rechnungsdatum = dialog.rechnungsdatum.text()
                 rechnungsnummer = dialog.rechnungsnummer.text()
                 self.send_to_rechnungen(selected_rows, rechnungsdatum, rechnungsnummer)
 
     def send_to_rechnungen(self, selected_rows, rechnungsdatum, rechnungsnummer):
+        from gui.rechnung import Rechnungen
+        total_betrag_netto = 0.0
+        selected_data = []
         for row in selected_rows:
             row_index = row.row()
-            zeitraum = self.energiekosten_table.item(row_index, 1).text()
-            menge = self.energiekosten_table.item(row_index, 2).text()
-            preis_netto = self.energiekosten_table.item(row_index, 3).text()
-            betrag_netto = self.energiekosten_table.item(row_index, 4).text()
-
-            rechnung_data = {
-                "Vertragsnummer": self.vertragsnummer,
-                "Rechnungsdatum": rechnungsdatum,
-                "Rechnungsnummer": rechnungsnummer,
-                "Zeitraum": zeitraum,
-                "Menge": menge,
-                "Preis_netto": preis_netto,
-                "Betrag_netto": betrag_netto
-            }
-            self.db.add_rechnung(rechnung_data)
+            betrag_netto = float(self.energiekosten_table.item(row_index, 4).text().split()[0])
+            total_betrag_netto += betrag_netto
+            selected_data.append({
+                "Description": self.energiekosten_table.item(row_index, 0).text(),
+                "Zeitraum": self.energiekosten_table.item(row_index, 1).text(),
+                "Menge": self.energiekosten_table.item(row_index, 2).text(),
+                "Preis_netto": self.energiekosten_table.item(row_index, 3).text(),
+                "Betrag_netto": self.energiekosten_table.item(row_index, 4).text()
+            })
         
-        # باز کردن پنجره Rechnungen بعد از ذخیره
+        mwst = total_betrag_netto * 0.19
+        betrag_brutto = total_betrag_netto + mwst
+
+        rechnung_data = {
+            "Vertragsnummer": self.vertragsnummer,
+            "Rechnungsdatum": rechnungsdatum,
+            "Rechnungsnummer": rechnungsnummer,
+            "Betrag_brutto": f"{betrag_brutto:.2f}",
+            "Selected_rows": json.dumps(selected_data)
+        }
+
+        with sqlite3.connect(self.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE Rechnungen 
+                SET Vertragsnummer = ?, Rechnungsdatum = ?, Betrag_brutto = ?, Selected_rows = ?
+                WHERE Rechnungsnummer = ?
+            """, (rechnung_data["Vertragsnummer"], rechnung_data["Rechnungsdatum"], 
+                  rechnung_data["Betrag_brutto"], rechnung_data["Selected_rows"], rechnungsnummer))
+            if cursor.rowcount == 0:  # اگه ردیفی آپدیت نشد، یعنی وجود نداشته
+                cursor.execute("""
+                    INSERT INTO Rechnungen (Vertragsnummer, Rechnungsdatum, Rechnungsnummer, Betrag_brutto, Selected_rows)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (rechnung_data["Vertragsnummer"], rechnung_data["Rechnungsdatum"], 
+                      rechnung_data["Rechnungsnummer"], rechnung_data["Betrag_brutto"], rechnung_data["Selected_rows"]))
+            conn.commit()
+
         if self.parent:
             self.rechnungen_window = Rechnungen(self.db, self.parent, self.vertragsnummer)
             self.rechnungen_window.show()
-            self.hide()  # بستن Energiekosten
+            self.hide()
 
     def calculate_zeitraum(self, tariffs, key, value):
         relevant_tariffs = [t for t in tariffs if t[key] == value]
@@ -334,6 +365,16 @@ class Energiekosten(QWidget):
         self.energiekosten_table.setItem(row, 4, betrag_netto_item)
         self.energiekosten_table.setItem(row, 5, mwst_item)
         self.energiekosten_table.setItem(row, 6, betrag_brutto_item)
+
+        if self.selected_rechnung:
+            selected_rows = json.loads(self.selected_rechnung["Selected_rows"]) if self.selected_rechnung["Selected_rows"] else []
+            for i in range(self.energiekosten_table.rowCount() - 1):  # آخرین سطر رو رد می‌کنیم
+                item_desc = self.energiekosten_table.item(i, 0).text()
+                item_zeitraum = self.energiekosten_table.item(i, 1).text()
+                for selected in selected_rows:
+                    if selected["Description"] == item_desc and selected["Zeitraum"] == item_zeitraum:
+                        self.energiekosten_table.selectRow(i)
+                        break
 
     def back_to_parent(self):
         if self.parent:
