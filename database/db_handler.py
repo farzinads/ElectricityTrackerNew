@@ -45,7 +45,58 @@ class DatabaseHandler:
                     Rechnungsdatum TEXT,
                     Rechnungsnummer TEXT,
                     Betrag_brutto TEXT,
-                    Selected_rows TEXT  -- ستون جدید برای ذخیره سطرهای انتخاب‌شده
+                    Selected_rows TEXT
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Raten (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    Ratendatum TEXT,
+                    Ratenbetrag REAL,
+                    Status TEXT,
+                    FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Zahlungen (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    Zahlungsdatum TEXT,
+                    Zahlungstyp TEXT,
+                    Zahlungsbetrag REAL,
+                    FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Abschlagen (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    Abschlagsdatum TEXT,
+                    Abschlagsbetrag REAL,
+                    Status TEXT,
+                    FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS OffeneZahlungTracker (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    Rechnungsnummer TEXT,
+                    Rechnungsdatum TEXT,
+                    Betrag REAL,
+                    Zahlungsstatus TEXT,
+                    FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS Analys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Vertragsnummer TEXT,
+                    AnalyseDatum TEXT,
+                    Verbrauch REAL,
+                    Kosten REAL,
+                    FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
                 )
             ''')
             conn.commit()

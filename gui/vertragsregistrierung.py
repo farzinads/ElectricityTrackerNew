@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox, QGroupBox, QLabel, QMenu
 from PyQt5.QtCore import Qt
 from database.db_handler import DatabaseHandler
@@ -5,10 +6,13 @@ from gui.tarifdaten import Tarifdaten
 from gui.ablesung import Ablesung
 from gui.energiekosten import Energiekosten
 from gui.rechnung import Rechnungen
-from gui.zahlungen import Zahlungen
+from gui.zahlung import Zahlungen
 from gui.raten import Raten
 from gui.charts import Charts
 from gui.verbrauchsmengen import Verbrauchsmengen
+from gui.abschlagen import Abschlagen  # اضافه شده
+from gui.offene_zahlung_tracker import OffeneZahlungTracker  # اضافه شده
+from gui.analys import Analys  # اضافه شده
 
 class VertragsRegistrierung(QWidget):
     def __init__(self, db_path, parent=None):
@@ -23,6 +27,7 @@ class VertragsRegistrierung(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout()
 
+        # فرم ثبت قرارداد
         input_frame = QGroupBox("Vertrag registrieren")
         input_frame.setFixedHeight(350)
         input_layout = QVBoxLayout()
@@ -79,6 +84,7 @@ class VertragsRegistrierung(QWidget):
         input_layout.addStretch()
         input_frame.setLayout(input_layout)
 
+        # جدول قراردادها
         table_frame = QGroupBox("Verträge")
         table_frame.setObjectName("table_frame")
         table_layout = QVBoxLayout()
@@ -320,6 +326,30 @@ class VertragsRegistrierung(QWidget):
             self.raten_window.show()
             self.hide()
 
+    def open_abschlagen(self):
+        selected_row = self.contract_table.currentRow()
+        if selected_row >= 0:
+            vertragsnummer = self.get_selected_vertragsnummer()
+            self.abschlagen_window = Abschlagen(self.db, self, vertragsnummer)
+            self.abschlagen_window.show()
+            self.hide()
+
+    def open_offene_zahlung_tracker(self):
+        selected_row = self.contract_table.currentRow()
+        if selected_row >= 0:
+            vertragsnummer = self.get_selected_vertragsnummer()
+            self.tracker_window = OffeneZahlungTracker(self.db, self, vertragsnummer)
+            self.tracker_window.show()
+            self.hide()
+
+    def open_analys(self):
+        selected_row = self.contract_table.currentRow()
+        if selected_row >= 0:
+            vertragsnummer = self.get_selected_vertragsnummer()
+            self.analys_window = Analys(self.db, self, vertragsnummer)
+            self.analys_window.show()
+            self.hide()
+
     def open_charts(self):
         selected_row = self.contract_table.currentRow()
         if selected_row >= 0:
@@ -336,7 +366,7 @@ class VertragsRegistrierung(QWidget):
             self.verbrauchsmengen_window.show()
             self.hide()
 
-    def show_context_menu(self, pos):
+    def show_context_menu(self):
         selected_row = self.contract_table.currentRow()
         if selected_row >= 0:
             menu = QMenu(self)
@@ -352,13 +382,16 @@ class VertragsRegistrierung(QWidget):
             submenu.addAction("Rechnungen").triggered.connect(self.open_rechnung)
             submenu.addAction("Zahlungen").triggered.connect(self.open_zahlungen)
             submenu.addAction("Raten").triggered.connect(self.open_raten)
+            submenu.addAction("Abschlagen").triggered.connect(self.open_abschlagen)
+            submenu.addAction("Offene Zahlung Tracker").triggered.connect(self.open_offene_zahlung_tracker)
+            submenu.addAction("Analys").triggered.connect(self.open_analys)
             submenu.addAction("Charts").triggered.connect(self.open_charts)
             menu_action.setMenu(submenu)
 
             edit_action.triggered.connect(self.edit_contract)
             delete_action.triggered.connect(self.delete_contract)
 
-            menu.exec_(self.contract_table.viewport().mapToGlobal(pos))
+            menu.exec_(self.contract_table.viewport().mapToGlobal(self.contract_table.pos()))
 
     def load_rechnungen_data(self):
         if hasattr(self, 'rechnungen_window'):

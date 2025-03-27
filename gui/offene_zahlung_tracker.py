@@ -1,11 +1,11 @@
-import sqlite3
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QLabel, QMessageBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QMessageBox, QLabel
 from PyQt5.QtCore import Qt
+import sqlite3
 
-class Raten(QWidget):
+class OffeneZahlungTracker(QWidget):
     def __init__(self, db, parent=None, vertragsnummer=None):
         super().__init__()
-        self.setWindowTitle("Raten")
+        self.setWindowTitle("Offene Zahlung Tracker")
         self.resize(1200, 800)
         self.db = db
         self.parent = parent
@@ -15,33 +15,42 @@ class Raten(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout()
 
+        # برچسب Vertragsnummer بالای صفحه
         vertragsnummer_label = QLabel(f"Vertragsnummer: {self.vertragsnummer if self.vertragsnummer else 'Nicht ausgewählt'}")
         vertragsnummer_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         main_layout.addWidget(vertragsnummer_label)
 
-        input_frame = QGroupBox("Neue Rate hinzufügen")
+        # فرم ورودی
+        input_frame = QGroupBox("Neue offene Zahlung hinzufügen")
         input_frame.setFixedHeight(350)
         input_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
 
-        ratendatum_label = QLabel("Ratendatum:")
-        ratendatum_label.setObjectName("form_label")
-        self.ratendatum_input = QLineEdit()
-        self.ratendatum_input.setPlaceholderText("DD.MM.YYYY")
-        self.ratendatum_input.setFixedWidth(350)
-        form_layout.addRow(ratendatum_label, self.ratendatum_input)
+        rechnungsnummer_label = QLabel("Rechnungsnummer:")
+        rechnungsnummer_label.setObjectName("form_label")
+        self.rechnungsnummer_input = QLineEdit()
+        self.rechnungsnummer_input.setPlaceholderText("Rechnungsnummer eingeben")
+        self.rechnungsnummer_input.setFixedWidth(350)
+        form_layout.addRow(rechnungsnummer_label, self.rechnungsnummer_input)
 
-        ratenbetrag_label = QLabel("Ratenbetrag:")
-        ratenbetrag_label.setObjectName("form_label")
-        self.ratenbetrag_input = QLineEdit()
-        self.ratenbetrag_input.setPlaceholderText("Betrag in €")
-        self.ratenbetrag_input.setFixedWidth(350)
-        form_layout.addRow(ratenbetrag_label, self.ratenbetrag_input)
+        rechnungsdatum_label = QLabel("Rechnungsdatum:")
+        rechnungsdatum_label.setObjectName("form_label")
+        self.rechnungsdatum_input = QLineEdit()
+        self.rechnungsdatum_input.setPlaceholderText("DD.MM.YYYY")
+        self.rechnungsdatum_input.setFixedWidth(350)
+        form_layout.addRow(rechnungsdatum_label, self.rechnungsdatum_input)
+
+        betrag_label = QLabel("Betrag:")
+        betrag_label.setObjectName("form_label")
+        self.betrag_input = QLineEdit()
+        self.betrag_input.setPlaceholderText("Betrag in €")
+        self.betrag_input.setFixedWidth(350)
+        form_layout.addRow(betrag_label, self.betrag_input)
 
         btn_layout = QHBoxLayout()
         self.save_btn = QPushButton("Speichern")
-        self.save_btn.clicked.connect(self.save_rate)
+        self.save_btn.clicked.connect(self.save_offene_zahlung)
         self.save_btn.setObjectName("save_btn")
         self.save_btn.setFixedSize(100, 25)
         back_btn = QPushButton("Zurück")
@@ -57,19 +66,21 @@ class Raten(QWidget):
         input_layout.addStretch()
         input_frame.setLayout(input_layout)
 
-        table_frame = QGroupBox("Raten")
+        # جدول
+        table_frame = QGroupBox("Offene Zahlungen")
         table_frame.setObjectName("table_frame")
         table_layout = QVBoxLayout()
 
-        self.raten_table = QTableWidget()
-        self.raten_table.setColumnCount(3)
-        self.raten_table.setHorizontalHeaderLabels(["Ratendatum", "Ratenbetrag", "Status"])
-        self.raten_table.setColumnWidth(0, 300)
-        self.raten_table.setColumnWidth(1, 300)
-        self.raten_table.setColumnWidth(2, 300)
-        self.raten_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tracker_table = QTableWidget()
+        self.tracker_table.setColumnCount(4)
+        self.tracker_table.setHorizontalHeaderLabels(["Rechnungsnummer", "Rechnungsdatum", "Betrag", "Zahlungsstatus"])
+        self.tracker_table.setColumnWidth(0, 250)
+        self.tracker_table.setColumnWidth(1, 250)
+        self.tracker_table.setColumnWidth(2, 250)
+        self.tracker_table.setColumnWidth(3, 250)
+        self.tracker_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
-        self.raten_table.horizontalHeader().setStyleSheet("""
+        self.tracker_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
                 background-color: #D3D3D3;
                 color: black;
@@ -79,7 +90,7 @@ class Raten(QWidget):
                 border-bottom: 2px solid #000000;
             }
         """)
-        self.raten_table.verticalHeader().setStyleSheet("""
+        self.tracker_table.verticalHeader().setStyleSheet("""
             QHeaderView::section {
                 background-color: #D3D3D3;
                 color: black;
@@ -90,7 +101,7 @@ class Raten(QWidget):
             }
         """)
 
-        table_layout.addWidget(self.raten_table)
+        table_layout.addWidget(self.tracker_table)
         table_frame.setLayout(table_layout)
 
         main_layout.addWidget(input_frame)
@@ -100,6 +111,7 @@ class Raten(QWidget):
         self.setLayout(main_layout)
         self.load_data()
 
+        # استایل مشابه Zahlungen
         self.setStyleSheet("""
             QWidget { 
                 font-size: 14px; 
@@ -170,40 +182,43 @@ class Raten(QWidget):
         try:
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT Ratendatum, Ratenbetrag, Status FROM Raten WHERE Vertragsnummer = ?", (self.vertragsnummer,))
-                raten = cursor.fetchall()
+                cursor.execute("SELECT Rechnungsnummer, Rechnungsdatum, Betrag, Zahlungsstatus FROM OffeneZahlungTracker WHERE Vertragsnummer = ?", (self.vertragsnummer,))
+                tracker_data = cursor.fetchall()
 
-            self.raten_table.setRowCount(len(raten))
-            for row, rate in enumerate(raten):
-                self.raten_table.setItem(row, 0, QTableWidgetItem(rate[0]))
-                self.raten_table.setItem(row, 1, QTableWidgetItem(f"{rate[1]} (€)"))
-                self.raten_table.setItem(row, 2, QTableWidgetItem(rate[2] if rate[2] else "Offen"))
+            self.tracker_table.setRowCount(len(tracker_data))
+            for row, data in enumerate(tracker_data):
+                self.tracker_table.setItem(row, 0, QTableWidgetItem(data[0]))
+                self.tracker_table.setItem(row, 1, QTableWidgetItem(data[1]))
+                self.tracker_table.setItem(row, 2, QTableWidgetItem(f"{data[2]:.2f} (€)"))
+                self.tracker_table.setItem(row, 3, QTableWidgetItem(data[3] if data[3] else "Offen"))
         except sqlite3.OperationalError as e:
             QMessageBox.warning(self, "خطا", f"خطای دیتابیس: {str(e)}")
-            self.raten_table.setRowCount(0)
+            self.tracker_table.setRowCount(0)
 
-    def save_rate(self):
-        ratendatum = self.ratendatum_input.text()
-        ratenbetrag = self.ratenbetrag_input.text()
+    def save_offene_zahlung(self):
+        rechnungsnummer = self.rechnungsnummer_input.text()
+        rechnungsdatum = self.rechnungsdatum_input.text()
+        betrag = self.betrag_input.text()
 
-        if not ratendatum or not ratenbetrag:
+        if not rechnungsnummer or not rechnungsdatum or not betrag:
             QMessageBox.warning(self, "خطا", "لطفاً همه فیلدها را پر کنید!")
             return
 
         try:
-            betrag = float(ratenbetrag)
+            betrag_float = float(betrag)
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO Raten (Vertragsnummer, Ratendatum, Ratenbetrag, Status)
-                    VALUES (?, ?, ?, ?)
-                """, (self.vertragsnummer, ratendatum, betrag, "Offen"))
+                    INSERT INTO OffeneZahlungTracker (Vertragsnummer, Rechnungsnummer, Rechnungsdatum, Betrag, Zahlungsstatus)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (self.vertragsnummer, rechnungsnummer, rechnungsdatum, betrag_float, "Offen"))
                 conn.commit()
-            self.ratendatum_input.clear()
-            self.ratenbetrag_input.clear()
+            self.rechnungsnummer_input.clear()
+            self.rechnungsdatum_input.clear()
+            self.betrag_input.clear()
             self.load_data()
         except ValueError:
-            QMessageBox.warning(self, "خطا", "مقدار رات باید عدد باشد!")
+            QMessageBox.warning(self, "خطا", "مقدار باید عدد باشد!")
         except sqlite3.Error as e:
             QMessageBox.warning(self, "خطا", f"خطای دیتابیس: {str(e)}")
 

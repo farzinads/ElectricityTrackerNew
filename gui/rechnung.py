@@ -42,6 +42,7 @@ class Rechnungen(QWidget):
         self.rechnungen_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.rechnungen_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.rechnungen_table.customContextMenuRequested.connect(self.show_context_menu)
+        self.rechnungen_table.doubleClicked.connect(self.handle_double_click)  # اضافه کردن دابل‌کلیک
 
         self.rechnungen_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
@@ -134,24 +135,63 @@ class Rechnungen(QWidget):
             self.rechnungen_table.setItem(row, 3, upload_item)
 
     def show_context_menu(self, pos):
-        selected_row = self.rechnungen_table.currentRow()
-        if selected_row >= 0:
-            menu = QMenu(self)
+        index = self.rechnungen_table.indexAt(pos)
+        if not index.isValid():
+            return
+        
+        row = index.row()
+        column = index.column()
+
+        if row < 0:
+            return
+
+        menu = QMenu(self)
+
+        if column == 0:  # ستون Rechnungsnummer
             open_action = menu.addAction("Öffnen")
             edit_action = menu.addAction("Bearbeiten")
             delete_action = menu.addAction("Löschen")
-            upload_action = menu.addAction("Upload Original Rechnung")
 
             action = menu.exec_(self.rechnungen_table.viewport().mapToGlobal(pos))
 
             if action == open_action:
-                self.open_pdf(selected_row)
+                self.open_pdf(row)
             elif action == edit_action:
-                self.edit_rechnung(selected_row)
+                self.edit_rechnung(row)
             elif action == delete_action:
                 self.delete_rechnung()
-            elif action == upload_action:
-                self.upload_rechnung(selected_row)
+
+        elif column == 3:  # ستون Original Rechnung Upload
+            current_file = self.rechnungen_table.item(row, 3).text()
+            if current_file == "No file uploaded":
+                upload_action = menu.addAction("Upload Original Rechnung")
+                action = menu.exec_(self.rechnungen_table.viewport().mapToGlobal(pos))
+                if action == upload_action:
+                    self.upload_rechnung(row)
+            else:
+                edit_action = menu.addAction("Bearbeiten (Replace PDF)")
+                delete_action = menu.addAction("Löschen (Remove PDF)")
+
+                action = menu.exec_(self.rechnungen_table.viewport().mapToGlobal(pos))
+
+                if action == edit_action:
+                    self.upload_rechnung(row)  # جایگزین کردن فایل
+                elif action == delete_action:
+                    self.delete_uploaded_file(row)
+
+        # ستون‌های 1 و 2 هیچ منویی ندارن
+        else:
+            return
+
+    def handle_double_click(self, index):
+        if index.column() == 3:  # فقط ستون Original Rechnung Upload
+            row = index.row()
+            rechnungsnummer = self.rechnungen_table.item(row, 0).text()
+            file_path = self.uploaded_files.get(rechnungsnummer)
+            if file_path and os.path.exists(file_path):
+                subprocess.Popen([file_path], shell=True)
+            else:
+                QMessageBox.warning(self, "خطا", "فایل PDF پیدا نشد یا قبلاً حذف شده است.")
 
     def open_pdf(self, row):
         rechnungsnummer = self.rechnungen_table.item(row, 0).text()
@@ -272,6 +312,12 @@ class Rechnungen(QWidget):
         if file_path:
             self.uploaded_files[rechnungsnummer] = file_path
             self.rechnungen_table.setItem(row, 3, QTableWidgetItem(file_path.split('/')[-1]))
+
+    def delete_uploaded_file(self, row):
+        rechnungsnummer = self.rechnungen_table.item(row, 0).text()
+        if rechnungsnummer in self.uploaded_files:
+            del self.uploaded_files[rechnungsnummer]
+            self.rechnungen_table.setItem(row, 3, QTableWidgetItem("No file uploaded"))
 
     def back_to_parent(self):
         if self.parent:
