@@ -1,6 +1,7 @@
 import sqlite3
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QMenu, QFileDialog, QMessageBox, QComboBox, QLabel
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont  # اضافه شده برای بولد کردن
 import os
 import subprocess
 
@@ -172,9 +173,6 @@ class Zahlungen(QWidget):
                 background-color: #D3D3D3; 
                 color: red; 
             }
-            QTableWidget::item#summe { 
-                font-weight: bold;  /* فونت bold برای Zahlungssumme */
-            }
             QPushButton { 
                 background-color: #676b6d; 
                 color: white; 
@@ -211,9 +209,14 @@ class Zahlungen(QWidget):
 
         # ردیف آخر برای جمع
         sum_item = QTableWidgetItem(f"{total_sum:.2f} (€)")
-        sum_item.setObjectName("summe")  # برای اعمال فونت bold
+        sum_font = QFont()  # ساخت فونت جدید
+        sum_font.setBold(True)  # بولد کردن
+        sum_item.setFont(sum_font)  # اعمال فونت به آیتم
         self.zahlungen_table.setItem(len(zahlungen), 4, sum_item)
-        self.zahlungen_table.setItem(len(zahlungen), 0, QTableWidgetItem("Gesamt"))
+
+        gesamt_item = QTableWidgetItem("Gesamt")
+        gesamt_item.setFont(sum_font)  # بولد کردن "Gesamt"
+        self.zahlungen_table.setItem(len(zahlungen), 0, gesamt_item)
 
     def save_zahlung(self):
         zahlungsdatum = self.zahlungsdatum_input.text()

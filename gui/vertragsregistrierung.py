@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox, QGroupBox, QLabel, QMenu
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox, QGroupBox, QLabel, QMenu, QFileDialog
 from PyQt5.QtCore import Qt
 from database.db_handler import DatabaseHandler
 from gui.tarifdaten import Tarifdaten
@@ -10,9 +10,12 @@ from gui.zahlung import Zahlungen
 from gui.raten import Raten
 from gui.charts import Charts
 from gui.verbrauchsmengen import Verbrauchsmengen
-from gui.abschlagen import Abschlagen  # اضافه شده
-from gui.offene_zahlung_tracker import OffeneZahlungTracker  # اضافه شده
-from gui.analys import Analys  # اضافه شده
+from gui.abschlagen import Abschlagen
+from gui.offene_zahlung_tracker import OffeneZahlungTracker
+from gui.analys import Analys
+import os
+import shutil
+from datetime import datetime
 
 class VertragsRegistrierung(QWidget):
     def __init__(self, db_path, parent=None):
@@ -20,12 +23,28 @@ class VertragsRegistrierung(QWidget):
         self.setWindowTitle("Vertragsregistrierung")
         self.resize(1200, 800)
         self.db = DatabaseHandler(db_path)
+        self.db_path = db_path
         self.parent = parent
         self.is_editing = False
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout()
+
+        # دکمه‌های بکاپ و بازیابی
+        backup_layout = QHBoxLayout()
+        backup_btn = QPushButton("Sichern")
+        backup_btn.clicked.connect(self.backup_database)
+        backup_btn.setFixedSize(150, 37)  # عرض و ارتفاع ۱/۵ برابر
+        backup_btn.setObjectName("backup_btn")
+        restore_btn = QPushButton("Wiederherstellen")
+        restore_btn.clicked.connect(self.restore_database)
+        restore_btn.setFixedSize(150, 37)  # عرض و ارتفاع ۱/۵ برابر
+        restore_btn.setObjectName("restore_btn")
+        backup_layout.addWidget(backup_btn)
+        backup_layout.addWidget(restore_btn)
+        backup_layout.addStretch()
+        main_layout.addLayout(backup_layout)
 
         # فرم ثبت قرارداد
         input_frame = QGroupBox("Vertrag registrieren")
@@ -69,11 +88,11 @@ class VertragsRegistrierung(QWidget):
         self.save_btn = QPushButton("Speichern")
         self.save_btn.clicked.connect(self.save_contract)
         self.save_btn.setObjectName("save_btn")
-        self.save_btn.setFixedSize(100, 25)
+        self.save_btn.setFixedSize(150, 37)  # عرض و ارتفاع ۱/۵ برابر
 
         beenden_btn = QPushButton("Beenden")
         beenden_btn.clicked.connect(self.close)
-        beenden_btn.setFixedSize(100, 25)
+        beenden_btn.setFixedSize(150, 37)  # عرض و ارتفاع ۱/۵ برابر
 
         btn_layout.addWidget(self.save_btn)
         btn_layout.addWidget(beenden_btn)
@@ -204,7 +223,39 @@ class VertragsRegistrierung(QWidget):
                 border-radius: 10px; 
                 border: 2px solid #676b6d;
             }
+            QPushButton#backup_btn, QPushButton#restore_btn { 
+                background-color: #FFD700; 
+                color: black; 
+                font-weight: bold; 
+                padding: 5px; 
+                border-radius: 10px; 
+                border: 2px solid #FFD700; 
+            }
         """)
+
+    def backup_database(self):
+        backup_dir = os.path.join(os.path.dirname(self.db_path), "backups")
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+
+        current_date = datetime.now().strftime("%Y%m%d")
+        backup_file = os.path.join(backup_dir, f"contracts_{current_date}.db")
+
+        try:
+            shutil.copy2(self.db_path, backup_file)
+            QMessageBox.information(self, "Erfolg", f"Die Sicherung wurde erfolgreich in {backup_file} gespeichert!")
+        except Exception as e:
+            QMessageBox.warning(self, "Fehler", f"Fehler beim Sichern: {str(e)}")
+
+    def restore_database(self):
+        backup_file, _ = QFileDialog.getOpenFileName(self, "Wählen Sie eine Sicherungsdatei aus", os.path.join(os.path.dirname(self.db_path), "backups"), "Database Files (*.db)")
+        if backup_file:
+            try:
+                shutil.copy2(backup_file, self.db_path)
+                QMessageBox.information(self, "Erfolg", "Die Datenbank wurde erfolgreich wiederhergestellt!")
+                self.load_contracts()
+            except Exception as e:
+                QMessageBox.warning(self, "Fehler", f"Fehler bei der Wiederherstellung: {str(e)}")
 
     def save_contract(self):
         if not all([self.vertragsnummer.text(), self.stromanbieter.text(), self.vertragstyp.text(), 
@@ -267,8 +318,12 @@ class VertragsRegistrierung(QWidget):
         selected_row = self.contract_table.currentRow()
         if selected_row >= 0:
             vertragsnummer = self.contract_table.item(selected_row, 0).text()
-            self.db.delete_contract(vertragsnummer)
-            self.load_contracts()
+            reply = QMessageBox.question(self, "Warnung", 
+                                         f"Möchten Sie den Vertrag '{vertragsnummer}' wirklich löschen?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                self.db.delete_contract(vertragsnummer)
+                self.load_contracts()
         else:
             QMessageBox.warning(self, "Warnung", "Bitte wählen Sie einen Vertrag aus!")
 

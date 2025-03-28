@@ -72,7 +72,8 @@ class DatabaseHandler:
                 CREATE TABLE IF NOT EXISTS Abschlagen (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     Vertragsnummer TEXT,
-                    Abschlagsdatum TEXT,
+                    ZeitraumVon TEXT,  -- تغییر از Abschlagsdatum به ZeitraumVon
+                    ZeitraumBis TEXT,  -- اضافه کردن ZeitraumBis
                     Abschlagsbetrag REAL,
                     Status TEXT,
                     FOREIGN KEY (Vertragsnummer) REFERENCES contracts(Vertragsnummer)
@@ -110,6 +111,18 @@ class DatabaseHandler:
                 pass
             try:
                 cursor.execute("ALTER TABLE Rechnungen ADD COLUMN Selected_rows TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("ALTER TABLE Abschlagen ADD COLUMN ZeitraumVon TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("ALTER TABLE Abschlagen ADD COLUMN ZeitraumBis TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("ALTER TABLE Abschlagen DROP COLUMN Abschlagsdatum")
             except sqlite3.OperationalError:
                 pass
             conn.commit()

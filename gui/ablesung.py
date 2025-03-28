@@ -1,3 +1,4 @@
+
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QLabel, QComboBox, QMenu
 from PyQt5.QtCore import Qt
 from database.db_handler import DatabaseHandler

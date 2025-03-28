@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QMessageBox, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QGroupBox, QMessageBox, QLabel, QMenu
 from PyQt5.QtCore import Qt
 import sqlite3
 
@@ -10,45 +10,55 @@ class Abschlagen(QWidget):
         self.db = db
         self.parent = parent
         self.vertragsnummer = vertragsnummer
+        self.is_editing = False
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout()
 
-        # برچسب Vertragsnummer بالای صفحه
         vertragsnummer_label = QLabel(f"Vertragsnummer: {self.vertragsnummer if self.vertragsnummer else 'Nicht ausgewählt'}")
         vertragsnummer_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
         main_layout.addWidget(vertragsnummer_label)
 
-        # فرم ورودی
         input_frame = QGroupBox("Neuen Abschlag hinzufügen")
         input_frame.setFixedHeight(350)
         input_layout = QVBoxLayout()
 
         form_layout = QFormLayout()
 
-        abschlagsdatum_label = QLabel("Abschlagsdatum:")
-        abschlagsdatum_label.setObjectName("form_label")
-        self.abschlagsdatum_input = QLineEdit()
-        self.abschlagsdatum_input.setPlaceholderText("DD.MM.YYYY")
-        self.abschlagsdatum_input.setFixedWidth(350)
-        form_layout.addRow(abschlagsdatum_label, self.abschlagsdatum_input)
+        # لیبل Zeitraum
+        zeitraum_label = QLabel("Zeitraum:")
+        zeitraum_label.setObjectName("form_label")
 
-        abschlagsbetrag_label = QLabel("Abschlagsbetrag:")
-        abschlagsbetrag_label.setObjectName("form_label")
-        self.abschlagsbetrag_input = QLineEdit()
-        self.abschlagsbetrag_input.setPlaceholderText("Betrag in €")
-        self.abschlagsbetrag_input.setFixedWidth(350)
-        form_layout.addRow(abschlagsbetrag_label, self.abschlagsbetrag_input)
+        # فیلدهای Von و Bis کنار هم
+        zeitraum_fields_layout = QHBoxLayout()
+        self.zeitraum_von_input = QLineEdit()
+        self.zeitraum_von_input.setPlaceholderText("Von (DD.MM.YYYY)")
+        self.zeitraum_von_input.setFixedWidth(170)
+        self.zeitraum_bis_input = QLineEdit()
+        self.zeitraum_bis_input.setPlaceholderText("Bis (DD.MM.YYYY)")
+        self.zeitraum_bis_input.setFixedWidth(170)
+        zeitraum_fields_layout.addWidget(self.zeitraum_von_input)
+        zeitraum_fields_layout.addWidget(self.zeitraum_bis_input)
+
+        form_layout.addRow(zeitraum_label, zeitraum_fields_layout)
+
+        # فیلد Abschlag
+        abschlag_label = QLabel("Abschlag:")
+        abschlag_label.setObjectName("form_label")
+        self.abschlag_input = QLineEdit()
+        self.abschlag_input.setPlaceholderText("Betrag in €")
+        self.abschlag_input.setFixedWidth(350)
+        form_layout.addRow(abschlag_label, self.abschlag_input)
 
         btn_layout = QHBoxLayout()
         self.save_btn = QPushButton("Speichern")
         self.save_btn.clicked.connect(self.save_abschlag)
         self.save_btn.setObjectName("save_btn")
-        self.save_btn.setFixedSize(100, 25)
+        self.save_btn.setFixedSize(150, 37)
         back_btn = QPushButton("Zurück")
         back_btn.clicked.connect(self.back_to_parent)
-        back_btn.setFixedSize(100, 25)
+        back_btn.setFixedSize(150, 37)
 
         btn_layout.addWidget(self.save_btn)
         btn_layout.addWidget(back_btn)
@@ -59,18 +69,18 @@ class Abschlagen(QWidget):
         input_layout.addStretch()
         input_frame.setLayout(input_layout)
 
-        # جدول
         table_frame = QGroupBox("Abschläge")
         table_frame.setObjectName("table_frame")
         table_layout = QVBoxLayout()
 
         self.abschlagen_table = QTableWidget()
-        self.abschlagen_table.setColumnCount(3)
-        self.abschlagen_table.setHorizontalHeaderLabels(["Abschlagsdatum", "Abschlagsbetrag", "Status"])
-        self.abschlagen_table.setColumnWidth(0, 300)
-        self.abschlagen_table.setColumnWidth(1, 300)
-        self.abschlagen_table.setColumnWidth(2, 300)
+        self.abschlagen_table.setColumnCount(2)  # فقط دو ستون
+        self.abschlagen_table.setHorizontalHeaderLabels(["Zeitraum", "Abschlag"])
+        self.abschlagen_table.setColumnWidth(0, 400)  # ستون Zeitraum عریض‌تر
+        self.abschlagen_table.setColumnWidth(1, 200)
         self.abschlagen_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.abschlagen_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.abschlagen_table.customContextMenuRequested.connect(self.show_context_menu)
 
         self.abschlagen_table.horizontalHeader().setStyleSheet("""
             QHeaderView::section {
@@ -103,7 +113,6 @@ class Abschlagen(QWidget):
         self.setLayout(main_layout)
         self.load_data()
 
-        # استایل مشابه Zahlungen
         self.setStyleSheet("""
             QWidget { 
                 font-size: 14px; 
@@ -174,42 +183,106 @@ class Abschlagen(QWidget):
         try:
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT Abschlagsdatum, Abschlagsbetrag, Status FROM Abschlagen WHERE Vertragsnummer = ?", (self.vertragsnummer,))
+                cursor.execute("SELECT ZeitraumVon, ZeitraumBis, Abschlagsbetrag FROM Abschlagen WHERE Vertragsnummer = ?", (self.vertragsnummer,))
                 abschlagen = cursor.fetchall()
 
             self.abschlagen_table.setRowCount(len(abschlagen))
             for row, abschlag in enumerate(abschlagen):
-                self.abschlagen_table.setItem(row, 0, QTableWidgetItem(abschlag[0]))
-                self.abschlagen_table.setItem(row, 1, QTableWidgetItem(f"{abschlag[1]:.2f} (€)"))
-                self.abschlagen_table.setItem(row, 2, QTableWidgetItem(abschlag[2] if abschlag[2] else "Offen"))
+                zeitraum = f"{abschlag[0]} —— {abschlag[1]}"  # ترکیب Von و Bis با خط تیره
+                self.abschlagen_table.setItem(row, 0, QTableWidgetItem(zeitraum))
+                self.abschlagen_table.setItem(row, 1, QTableWidgetItem(f"{abschlag[2]:.2f} €"))
         except sqlite3.OperationalError as e:
-            QMessageBox.warning(self, "خطا", f"خطای دیتابیس: {str(e)}")
+            QMessageBox.warning(self, "Fehler", f"Datenbankfehler: {str(e)}")
             self.abschlagen_table.setRowCount(0)
 
     def save_abschlag(self):
-        abschlagsdatum = self.abschlagsdatum_input.text()
-        abschlagsbetrag = self.abschlagsbetrag_input.text()
+        zeitraum_von = self.zeitraum_von_input.text()
+        zeitraum_bis = self.zeitraum_bis_input.text()
+        abschlag = self.abschlag_input.text()
 
-        if not abschlagsdatum or not abschlagsbetrag:
-            QMessageBox.warning(self, "خطا", "لطفاً همه فیلدها را پر کنید!")
+        if not zeitraum_von or not zeitraum_bis or not abschlag:
+            QMessageBox.warning(self, "Fehler", "Bitte füllen Sie alle Felder aus!")
             return
 
         try:
-            betrag = float(abschlagsbetrag)
+            betrag = float(abschlag)
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO Abschlagen (Vertragsnummer, Abschlagsdatum, Abschlagsbetrag, Status)
-                    VALUES (?, ?, ?, ?)
-                """, (self.vertragsnummer, abschlagsdatum, betrag, "Offen"))
+                if self.is_editing:
+                    cursor.execute("""
+                        UPDATE Abschlagen 
+                        SET ZeitraumVon = ?, ZeitraumBis = ?, Abschlagsbetrag = ?
+                        WHERE Vertragsnummer = ? AND ZeitraumVon = ? AND ZeitraumBis = ?
+                    """, (zeitraum_von, zeitraum_bis, betrag, self.vertragsnummer, self.edit_zeitraum_von, self.edit_zeitraum_bis))
+                    self.is_editing = False
+                    self.save_btn.setText("Speichern")
+                else:
+                    cursor.execute("""
+                        INSERT INTO Abschlagen (Vertragsnummer, ZeitraumVon, ZeitraumBis, Abschlagsbetrag)
+                        VALUES (?, ?, ?, ?)
+                    """, (self.vertragsnummer, zeitraum_von, zeitraum_bis, betrag))
                 conn.commit()
-            self.abschlagsdatum_input.clear()
-            self.abschlagsbetrag_input.clear()
+            self.zeitraum_von_input.clear()
+            self.zeitraum_bis_input.clear()
+            self.abschlag_input.clear()
             self.load_data()
         except ValueError:
-            QMessageBox.warning(self, "خطا", "مقدار پیش‌پرداخت باید عدد باشد!")
+            QMessageBox.warning(self, "Fehler", "Abschlag muss eine Zahl باشد!")
         except sqlite3.Error as e:
-            QMessageBox.warning(self, "خطا", f"خطای دیتابیس: {str(e)}")
+            QMessageBox.warning(self, "Fehler", f"Datenbankfehler: {str(e)}")
+
+    def edit_abschlag(self):
+        selected_row = self.abschlagen_table.currentRow()
+        if selected_row >= 0:
+            zeitraum = self.abschlagen_table.item(selected_row, 0).text().split(" —— ")
+            self.edit_zeitraum_von = zeitraum[0]
+            self.edit_zeitraum_bis = zeitraum[1]
+            self.zeitraum_von_input.setText(self.edit_zeitraum_von)
+            self.zeitraum_bis_input.setText(self.edit_zeitraum_bis)
+            self.abschlag_input.setText(self.abschlagen_table.item(selected_row, 1).text().replace(" €", ""))
+            self.delete_abschlag()  # حذف موقت برای ویرایش
+            self.is_editing = True
+            self.save_btn.setText("Aktualisieren")
+        else:
+            QMessageBox.warning(self, "Warnung", "Bitte wählen Sie einen Abschlag aus!")
+
+    def delete_abschlag(self):
+        selected_row = self.abschlagen_table.currentRow()
+        if selected_row >= 0:
+            zeitraum = self.abschlagen_table.item(selected_row, 0).text().split(" —— ")
+            zeitraum_von = zeitraum[0]
+            zeitraum_bis = zeitraum[1]
+            if not self.is_editing:  # فقط در حالت غیر ویرایش هشدار بده
+                reply = QMessageBox.question(self, "Warnung",
+                                             f"Möchten Sie den Abschlag von {zeitraum_von} bis {zeitraum_bis} wirklich löschen?",
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply != QMessageBox.Yes:
+                    return
+            try:
+                with sqlite3.connect(self.db.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        DELETE FROM Abschlagen 
+                        WHERE Vertragsnummer = ? AND ZeitraumVon = ? AND ZeitraumBis = ?
+                    """, (self.vertragsnummer, zeitraum_von, zeitraum_bis))
+                    conn.commit()
+                self.load_data()
+            except sqlite3.Error as e:
+                QMessageBox.warning(self, "Fehler", f"Datenbankfehler: {str(e)}")
+        else:
+            QMessageBox.warning(self, "Warnung", "Bitte wählen Sie einen Abschlag aus!")
+
+    def show_context_menu(self, pos):
+        selected_row = self.abschlagen_table.currentRow()
+        if selected_row >= 0:
+            menu = QMenu(self)
+            edit_action = menu.addAction("Bearbeiten")
+            delete_action = menu.addAction("Löschen")
+
+            edit_action.triggered.connect(self.edit_abschlag)
+            delete_action.triggered.connect(self.delete_abschlag)
+
+            menu.exec_(self.abschlagen_table.viewport().mapToGlobal(pos))
 
     def back_to_parent(self):
         if self.parent:
